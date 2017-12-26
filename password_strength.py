@@ -35,12 +35,12 @@ def get_color(number):
 
 def find_str_in_file(string, filename):
     try:
-        f = open(filename, 'r')
+        text_file = open(filename, 'r')
     except IOError as error:
-        print(get_color(0) + 'Blacklist dictionary not found\n' +
+        print('\x1b[1;31;40m' + 'Blacklist dictionary not found\n' +
               str(error) + '\nSkiping blacklist test' + '\x1b[0m')
         return False
-    for line in f:
+    for line in text_file:
         if line.strip() == string:
             return True
     return False
