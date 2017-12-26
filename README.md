@@ -3,11 +3,13 @@
 Application for password strenght checking. Run password_strength.py on your terminal and type a password fro checking.
 This application check password for:
  - Lenght
- - Chsrsets (containing numerical digit, lower-case and upper-case letter, special symbols)
+ - Charsets (containing numerical digit, lower-case and upper-case letter, special symbols)
  - Formate (not matching for a formate of calendar dates)
  - Blacklist (matching of one of must popular passwords)
 
 Blacklist is in 10_million_password_list_top_100000.txt
+
+Password strenght range from 1(worst) to 10(best) and application give some recomendations for password strenght increasing.
 
 # Quickstart
 
