@@ -1,105 +1,166 @@
 import re
+import getpass
 
-# RegExp for date fomate
-DATE = '(0[1-9]|[12][0-9]|3[01])' +\
-       '[- /.]?(0[1-9]|1[012])' +\
-       '[- /.]?((19|20)\d\d|\d\d$)'
 
-# Path to blacklist file
-FILE = './10_million_password_list_top_100000.txt'
+search_patterns = {
+           'digits': re.compile('[0-9]'),
+           'loletters': re.compile('[a-z]'),
+           'upletters': re.compile('[A-Z]'),
+           'symbols': re.compile('[\W_]')
+           }
 
-RECOMEND = {
+match_patterns = {
+           'dateformat': re.compile(
+                         """(0[1-9]|[12][0-9]|3[01])[- /.] # day
+                         ?(0[1-9]|1[012])[- /.]            # month
+                         ?((19|20)\d\d|\d\d$)              # year
+                         """, re.X)
+           }
+
+files_to_search = {
+           'blacklist': './10_million_password_list_top_100000.txt'
+           }
+
+RECOMMENDS = {
         'len': 'Your password is too short. Increase it lenght!',
         'digits': 'Use numerical digits for increasing strenght!',
         'loletters': 'Use lower-case letters for increasing strenght!',
         'upletters': 'Use upper-case letters for increasing strenght!',
         'symbols': 'Use special chars, such as @, #, for increasing strenght!',
-        'dateformate': 'Your password match the formate of calendar dates, ' +
-                       'change your password!',
+        'dateformat': 'Your password match the format of calendar dates, ' +
+                      'change your password!',
         'blacklist': 'Your password found in a password blacklist, ' +
                      'change it immediately!'
         }
 
+# Weight of password's lenght
+min_len_value = -2
+max_len_value = 2
+len_of_best_password = 16
 
-# Returns special color string RED:[0-3] YELLOW:[4-7] GREEN:[8-10]
-def get_color(number):
+# Weight of charset, format and blacklist tests
+charset_coefficient = 4
+format_coefficient = 1
+blacklist_coefficient = 3
+
+minimum_strenght = 1
+maximum_strenght = 10
+
+
+def get_color(minimum, maximum, current):
+    maximum_red = 0.4
+    minimum_green = 0.7
+    proportion = current/(maximum - minimum)
+    return proportion <= maximum_red and 'red' or\
+        proportion >= minimum_green and 'green' or 'yellow'
+
+
+def str_to_colored(string, color):
     colors = {
           'red': '\x1b[1;31;40m',
           'yellow': '\x1b[1;33;40m',
-          'green': '\x1b[1;32;40m'
+          'green': '\x1b[1;32;40m',
+          'reset': '\n\x1b[0m'
           }
-    return number < 4 and colors['red'] or\
-        number > 7 and colors['green'] or\
-        colors['yellow']
+    return '{}{}{}'.format(colors[color], string, colors['reset'])
 
 
-def find_str_in_file(string, filename):
+def read_file(path):
+    errors = ''
     try:
-        text_file = open(filename, 'r')
-    except IOError as error:
-        print('\x1b[1;31;40m' + 'Blacklist dictionary not found\n' +
-              str(error) + '\nSkiping blacklist test' + '\x1b[0m')
-        return False
-    for line in text_file:
-        if line.strip() == string:
-            return True
+        with open(path) as file_to_read:
+            read_data = file_to_read.read()
+    except IOError as err:
+        errors += 'File not found\n{}'.format(str(err))
+        read_data = None
+    return read_data, errors
+
+
+def search_string(string, read_data):
+    if read_data:
+        for line in read_data.split('\n'):
+            if line == string:
+                return True
+    else:
+        return None
     return False
 
 
-def check_password(passw):
-    return {
-        'len': len(passw),
-        'digits': re.search('[0-9]', passw) and 1 or 0,
-        'loletters': re.search('[a-z]', passw) and 1 or 0,
-        'upletters': re.search('[A-Z]', passw) and 1 or 0,
-        'symbols': re.search('[\W_]', passw) and 1 or 0,
-        'dateformate': not(re.match(DATE, passw)) and 1 or 0,
-        'blacklist': not(find_str_in_file(passw, FILE)) and 1 or 0
-        }
+def get_rate(minimum, maximum, best_value, current_value):
+    return minimum - 1 + int(pow(maximum - minimum + 1,
+                             min(current_value, best_value)/best_value))
 
 
-def get_password_strength(passw):
-    checks = check_password(passw)
-
-    # value of password lenght [min= -3: max=2]
-    max_len_value = 2
-    len_value = min(((checks['len']-1) // 4 - 2), max_len_value)
-
-    # value of using different charsets [min=4: max=16]
-    sharset_value = 4*(
-                       checks['digits'] +
-                       checks['loletters'] +
-                       checks['upletters'] +
-                       checks['symbols']
-                      )
-
-    # Calculate strenght: [max:int(1,111^22) = 10; min:int(1,111^1) = 1]
-    strength = int(pow(1.111, len_value +
-                       sharset_value +
-                       checks['dateformate'] +
-                       3*checks['blacklist']))
-
-    recomend = '\n'.join([RECOMEND[key] for key in checks.keys()
-                         if checks[key] < 1
-                         or (key == 'len' and checks[key] < 17)])
-    return {
-        'strength': strength,
-        'recomend': recomend
-        }
+def summ_matched_keys_values(dict_1, dict_2):
+    return sum([dict_1[key] for key in dict_2.keys()])
 
 
 if __name__ == '__main__':
-    passw = ' '
-    while passw:
-        passw = input('Input a password for checking or tap Enter for exit: ')
-        if passw:
-            password_strength = get_password_strength(passw)
-            color = get_color(password_strength['strength'])
+    password = ' '
+    while password:
+        password = getpass.getpass(
+                prompt='Input a password for checking or tap Enter for exit: ')
+        if password:
 
-            print(color + '\n' + 'Your password strength: ' +
-                  str(password_strength['strength']) + '\n')
-            print((password_strength['recomend'] and 'RECOMENDATIONS:\n\n' +
-                   password_strength['recomend'] +
-                   '\n\n'
-                   or 'Great! Your password is strong,' +
-                   'but how do you remember it?\n') + '\x1b[0m')
+            # Get tests results
+            checks = {
+                  'len': len(password)
+                  }
+            for key, pattern in search_patterns.items():
+                checks[key] = pattern.search(password) and 1 or 0
+            for key, pattern in match_patterns.items():
+                checks[key] = not pattern.match(password) and 1 or 0
+            for key, path in files_to_search.items():
+                read_data, errors = read_file(path)
+                if read_data is not None:
+                    checks[key] = not search_string(password,
+                                                    read_data) and 1 or 0
+                else:
+                    print(str_to_colored(
+                        '{}\nAttention, {} cheching was skipped!'.format(
+                                                       errors, key), 'red'))
+
+                    checks[key] = 1  # Skipped, but we trust to user
+
+            # Componets of strenght, based on different tests
+            len_value = get_rate(minimum=min_len_value,
+                                 maximum=max_len_value,
+                                 best_value=len_of_best_password,
+                                 current_value=checks['len'])
+
+            charset_value = charset_coefficient * summ_matched_keys_values(
+                                                   checks, search_patterns)
+            format_value = format_coefficient * summ_matched_keys_values(
+                                                   checks, match_patterns)
+            blacklist_value = blacklist_coefficient * summ_matched_keys_values(
+                                                   checks, files_to_search)
+
+            check_result = len_value + charset_value + format_value +\
+                blacklist_value
+
+            maximum_check_range = max_len_value +\
+                charset_coefficient * len(search_patterns) +\
+                format_coefficient * len(match_patterns) +\
+                blacklist_coefficient * len(files_to_search)
+
+            password_strength = get_rate(minimum=minimum_strenght,
+                                         maximum=maximum_strenght,
+                                         best_value=maximum_check_range,
+                                         current_value=check_result)
+
+            color = get_color(minimum=minimum_strenght,
+                              maximum=maximum_strenght,
+                              current=password_strength)
+
+            recommends = '\n'.join(
+                [RECOMMENDS[key] for key in checks.keys()
+                    if checks[key] < 1
+                    or (key == 'len' and checks[key] < len_of_best_password)])
+
+            print(str_to_colored('\nYour password strength: {}'.format(
+                                             str(password_strength)), color))
+
+            print(str_to_colored(
+                recommends and 'RECOMMENDATIONS:\n\n{}\n'.format(recommends)
+                or 'Great! Your password is strong, ' +
+                   'but how do you remember it?\n', color))
