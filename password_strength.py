@@ -46,6 +46,10 @@ blacklist_coefficient = 3
 minimum_strenght = 1
 maximum_strenght = 10
 
+maximum_check_range = max_len_value +\
+                charset_coefficient * len(search_patterns) +\
+                format_coefficient * len(match_patterns) +\
+                blacklist_coefficient * len(files_to_search)
 
 def get_color(minimum, maximum, current):
     maximum_red = 0.4
@@ -71,7 +75,7 @@ def read_file(path):
         with open(path) as file_to_read:
             read_data = file_to_read.read()
     except IOError as err:
-        errors += 'File not found\n{}'.format(str(err))
+        errors += '\nFile not found\n{}'.format(str(err))
         read_data = None
     return read_data, errors
 
@@ -95,33 +99,47 @@ def summ_matched_keys_values(dict_1, dict_2):
     return sum([dict_1[key] for key in dict_2.keys()])
 
 
+def charset_test(checks, search_patterns, password):
+    for key, pattern in search_patterns.items():
+        checks[key] = pattern.search(password) and 1 or 0
+    return(checks)
+
+
+def format_test(checks, match_patterns, password):
+    for key, pattern in match_patterns.items():
+        checks[key] = not pattern.match(password) and 1 or 0
+    return(checks)
+
+
+# Fuction is not proper (requires read_file, search_string)
+def blacklist_test(checks, files_to_search, password):
+    for key, path in files_to_search.items():
+        read_data, errors = read_file(path)
+        if read_data is not None:
+            checks[key] = not search_string(password,
+                                            read_data) and 1 or 0
+        else:
+            errors += '\nAttention, {} cheching was skipped!'.format(key) 
+            checks[key] = 1  # Skipped, but we trust to user
+    return checks, errors
+
+
 if __name__ == '__main__':
     password = ' '
     while password:
         password = getpass.getpass(
                 prompt='Input a password for checking or tap Enter for exit: ')
         if password:
-
             # Get tests results
             checks = {
                   'len': len(password)
                   }
-            for key, pattern in search_patterns.items():
-                checks[key] = pattern.search(password) and 1 or 0
-            for key, pattern in match_patterns.items():
-                checks[key] = not pattern.match(password) and 1 or 0
-            for key, path in files_to_search.items():
-                read_data, errors = read_file(path)
-                if read_data is not None:
-                    checks[key] = not search_string(password,
-                                                    read_data) and 1 or 0
-                else:
-                    print(str_to_colored(
-                        '{}\nAttention, {} cheching was skipped!'.format(
-                                                       errors, key), 'red'))
-
-                    checks[key] = 1  # Skipped, but we trust to user
-
+            checks = charset_test(checks, search_patterns, password)
+            checks = format_test(checks, match_patterns, password)
+            checks, errors = blacklist_test(checks, files_to_search, password)
+            if errors:
+                print(str_to_colored(errors, 'red'))
+            
             # Componets of strenght, based on different tests
             len_value = get_rate(minimum=min_len_value,
                                  maximum=max_len_value,
@@ -137,11 +155,6 @@ if __name__ == '__main__':
 
             check_result = len_value + charset_value + format_value +\
                 blacklist_value
-
-            maximum_check_range = max_len_value +\
-                charset_coefficient * len(search_patterns) +\
-                format_coefficient * len(match_patterns) +\
-                blacklist_coefficient * len(files_to_search)
 
             password_strength = get_rate(minimum=minimum_strenght,
                                          maximum=maximum_strenght,
