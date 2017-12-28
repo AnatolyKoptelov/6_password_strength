@@ -102,13 +102,13 @@ def summ_matched_keys_values(dict_1, dict_2):
 def charset_test(checks, search_patterns, password):
     for key, pattern in search_patterns.items():
         checks[key] = pattern.search(password) and 1 or 0
-    return(checks)
+    return checks
 
 
 def format_test(checks, match_patterns, password):
     for key, pattern in match_patterns.items():
         checks[key] = not pattern.match(password) and 1 or 0
-    return(checks)
+    return checks
 
 
 # Fuction is not proper (requires read_file, search_string)
