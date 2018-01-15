@@ -15,7 +15,7 @@ def colorize(string, color):
         'red': '\x1b[1;31;40m',
         'yellow': '\x1b[1;33;40m',
         'green': '\x1b[1;32;40m',
-        'reset': '\n\x1b[0m',
+        'reset': '\x1b[0m',
     }
     return '{}{}{}'.format(colors[color], string, colors['reset'])
 
@@ -26,11 +26,11 @@ def get_rate(minimum, maximum, best_value, current_value):
 
 
 def summ_matched_keys_values(dict_1, dict_2):
-    return sum([dict_1[key] for key in dict_2.keys()])
+    return sum([dict_1[key] for key in dict_2.keys() if isinstance(
+                                                            dict_1[key], int)])
 
 
 def check_by_patterns(checks, password):
-    common_rate = lambda dict_1, list_1: sum([dict_1[key] for key in list_1])
     charsets = ['digits', 'loletters', 'upletters', 'symbols']
     formats = ['dateformat']
     patterns = {
@@ -47,9 +47,9 @@ def check_by_patterns(checks, password):
     for key, pattern in patterns.items():
         function, logic = pattern
         checks[key] = (function(password) is not None) == logic and 1 or 0
-    checks['charsets'] = common_rate(checks, charsets)
+    checks['charsets'] = sum([checks[key] for key in charsets])
     checks['max_charsets_rate'] = len(charsets)
-    checks['formats'] = common_rate(checks, formats)
+    checks['formats'] = sum([checks[key] for key in formats])
     checks['max_formats_rate'] = len(formats)
     return checks
 
@@ -82,20 +82,19 @@ def check_errors(checks):
 
 
 if __name__ == '__main__':
-    INIT_DATA = {
-        # Weight of password's lenght
-        'min_len_value': -2,
-        'max_len_value': 2,
-        'len_of_best_password': 16,
-        # Weight of charset, format and blacklist tests
-        'charsets_coeff': 4,
-        'formats_coeff': 1,
-        'blacklists_coeff': 3,
+    # Initial Data
+    minimum_strenght = 1
+    maximum_strenght = 10
+    # Weight of password's lenght
+    min_len_value = -2
+    max_len_value = 2
+    len_of_best_password = 16
+    # Weight of charset, format and blacklist tests
+    charsets_coeff = 4
+    formats_coeff = 1
+    blacklists_coeff = 3
 
-        'minimum_strenght': 1,
-        'maximum_strenght': 10,
-    }
-    RECOMMENDS = {
+    Recommends_Dict = {
         'len': 'Your password is too short. Increase it lenght!',
         'digits': 'Use numerical digits for increasing strenght!',
         'loletters': 'Use lower-case letters for increasing strenght!',
@@ -127,22 +126,22 @@ if __name__ == '__main__':
                 password,
             )
             check_errors(checks)
-            maximum_check_range = INIT_DATA['max_len_value'] + (
-                INIT_DATA['charsets_coeff'] * checks['max_charsets_rate'] +
-                INIT_DATA['formats_coeff'] * checks['max_formats_rate'] +
-                INIT_DATA['blacklists_coeff'] * len(blacklist_files))
+            maximum_check_range = max_len_value + (
+                charsets_coeff * checks['max_charsets_rate'] +
+                formats_coeff * checks['max_formats_rate'] +
+                blacklists_coeff * len(blacklist_files))
 
             # Componets of strenght, based on different tests
             len_value = get_rate(
-                minimum=INIT_DATA['min_len_value'],
-                maximum=INIT_DATA['max_len_value'],
-                best_value=INIT_DATA['len_of_best_password'],
+                minimum=min_len_value,
+                maximum=max_len_value,
+                best_value=len_of_best_password,
                 current_value=checks['len']
             )
 
-            charset_value = INIT_DATA['charsets_coeff'] * checks['charsets']
-            format_value = INIT_DATA['formats_coeff'] * checks['formats']
-            blacklist_value = INIT_DATA['blacklists_coeff'] * (
+            charset_value = charsets_coeff * checks['charsets']
+            format_value = formats_coeff * checks['formats']
+            blacklist_value = blacklists_coeff * (
                     summ_matched_keys_values(checks, blacklist_files))
 
             check_result = sum([len_value,
@@ -151,23 +150,23 @@ if __name__ == '__main__':
                                 blacklist_value])
 
             password_strength = get_rate(
-                minimum=INIT_DATA['minimum_strenght'],
-                maximum=INIT_DATA['maximum_strenght'],
+                minimum=minimum_strenght,
+                maximum=maximum_strenght,
                 best_value=maximum_check_range,
                 current_value=check_result
             )
 
             color = get_color(
-                minimum=INIT_DATA['minimum_strenght'],
-                maximum=INIT_DATA['maximum_strenght'],
+                minimum=minimum_strenght,
+                maximum=maximum_strenght,
                 current=password_strength
             )
 
             recommends = '\n'.join(
-                [RECOMMENDS[key] for key in checks.keys()
-                 if key in RECOMMENDS and (checks[key] < 1
-                 or (key == 'len' and
-                     checks[key] < INIT_DATA['len_of_best_password']))])
+                [Recommends_Dict[key] for key in checks.keys()
+                 if key in Recommends_Dict and (
+                    checks[key] is not None and checks[key] < 1
+                    or (key == 'len' and checks[key] < len_of_best_password))])
 
             print(colorize('\nYour password strength: {}'.format(
                                              str(password_strength)), color))
