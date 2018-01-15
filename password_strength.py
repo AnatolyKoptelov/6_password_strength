@@ -94,7 +94,7 @@ if __name__ == '__main__':
     formats_coeff = 1
     blacklists_coeff = 3
 
-    Recommends_Dict = {
+    recommends_dict = {
         'len': 'Your password is too short. Increase it lenght!',
         'digits': 'Use numerical digits for increasing strenght!',
         'loletters': 'Use lower-case letters for increasing strenght!',
@@ -163,8 +163,8 @@ if __name__ == '__main__':
             )
 
             recommends = '\n'.join(
-                [Recommends_Dict[key] for key in checks.keys()
-                 if key in Recommends_Dict and (
+                [recommends_dict[key] for key in checks.keys()
+                 if key in recommends_dict and (
                     checks[key] is not None and checks[key] < 1
                     or (key == 'len' and checks[key] < len_of_best_password))])
 
