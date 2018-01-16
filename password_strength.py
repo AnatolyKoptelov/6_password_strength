@@ -21,16 +21,27 @@ def colorize(string, color):
 
 
 def get_rate(minimum, maximum, best_value, current_value):
-    return minimum - 1 + int(pow(maximum - minimum + 1,
-                             min(current_value, best_value)/best_value))
+    return minimum - 1 + int(pow(
+        maximum - minimum + 1,
+        min(current_value, best_value)/best_value
+        ))
 
 
 def summ_matched_keys_values(dict_1, dict_2):
     return sum([dict_1[key] for key in dict_2.keys() if isinstance(
-                                                            dict_1[key], int)])
+        dict_1[key], int
+        )
+    ])
 
 
 def check_by_patterns(checks, password):
+
+    def summ_matched_values(dict_1, list_1):
+        return sum([dict_1[key] for key in list_1 if isinstance(
+            dict_1[key], int
+            )
+        ])
+
     charsets = ['digits', 'loletters', 'upletters', 'symbols']
     formats = ['dateformat']
     patterns = {
@@ -44,52 +55,52 @@ def check_by_patterns(checks, password):
                  ?((19|20)\d\d|\d\d$)              # year
                  """, re.X).match, False),
     }
-    for key, pattern in patterns.items():
+    for test_name, pattern in patterns.items():
         function, logic = pattern
-        checks[key] = (function(password) is not None) == logic and 1 or 0
-    checks['charsets'] = sum([checks[key] for key in charsets])
+        checks[test_name] = int((function(password) is not None) == logic)
+    checks['charsets'] = summ_matched_values(checks, charsets)
     checks['max_charsets_rate'] = len(charsets)
-    checks['formats'] = sum([checks[key] for key in formats])
+    checks['formats'] = summ_matched_values(checks, formats)
     checks['max_formats_rate'] = len(formats)
     return checks
 
 
 def read_files(dict_of_paths):
     dict_of_texts = {}
-    for key, path in dict_of_paths.items():
+    for test_name, path in dict_of_paths.items():
         try:
             with open(path) as file_to_read:
-                dict_of_texts[key] = file_to_read.read()
+                dict_of_texts[test_name] = file_to_read.read()
         except IOError:
-            dict_of_texts[key] = None
+            dict_of_texts[test_name] = None
     return dict_of_texts
 
 
 def check_by_blacklist(checks, dict_of_texts, password):
-    for key, text in dict_of_texts.items():
+    for test_name, text in dict_of_texts.items():
         if text:
-            checks[key] = not (password.lower() in text.split('\n'))
+            checks[test_name] = not (password.lower() in text.split('\n'))
         else:
-            checks[key] = None
+            checks[test_name] = None
     return checks
 
 
 def check_errors(checks):
-    for key, value in checks.items():
-        if value is None:
-            print(colorize(
-                'Attention! {} test was skipped'.format(str(key)), 'red'))
+    errors = ''
+    for test_name, result in checks.items():
+        if result is None:
+            errors += 'Attention! {} test was skipped\n'.format(str(test_name))
+            checks[test_name] = 1  # Test was skipped, but we trust to user
+    return errors
 
 
 if __name__ == '__main__':
-    # Initial Data
+
     minimum_strenght = 1
     maximum_strenght = 10
-    # Weight of password's lenght
     min_len_value = -2
     max_len_value = 2
     len_of_best_password = 16
-    # Weight of charset, format and blacklist tests
     charsets_coeff = 4
     formats_coeff = 1
     blacklists_coeff = 3
@@ -125,11 +136,15 @@ if __name__ == '__main__':
                 read_files(blacklist_files),
                 password,
             )
-            check_errors(checks)
+            errors = check_errors(checks)
+            if errors:
+                print(colorize(errors, 'red'))
+
             maximum_check_range = max_len_value + (
                 charsets_coeff * checks['max_charsets_rate'] +
                 formats_coeff * checks['max_formats_rate'] +
-                blacklists_coeff * len(blacklist_files))
+                blacklists_coeff * len(blacklist_files)
+                )
 
             # Componets of strenght, based on different tests
             len_value = get_rate(
@@ -142,12 +157,15 @@ if __name__ == '__main__':
             charset_value = charsets_coeff * checks['charsets']
             format_value = formats_coeff * checks['formats']
             blacklist_value = blacklists_coeff * (
-                    summ_matched_keys_values(checks, blacklist_files))
+                summ_matched_keys_values(checks, blacklist_files)
+                )
 
-            check_result = sum([len_value,
-                                charset_value,
-                                format_value,
-                                blacklist_value])
+            check_result = sum(
+                [len_value,
+                 charset_value,
+                 format_value,
+                 blacklist_value]
+                )
 
             password_strength = get_rate(
                 minimum=minimum_strenght,
@@ -163,15 +181,20 @@ if __name__ == '__main__':
             )
 
             recommends = '\n'.join(
-                [recommends_dict[key] for key in checks.keys()
-                 if key in recommends_dict and (
-                    checks[key] is not None and checks[key] < 1
-                    or (key == 'len' and checks[key] < len_of_best_password))])
+                [recommends_dict[test_name] for test_name in checks.keys()
+                 if test_name in recommends_dict and checks[test_name] < 1 or (
+                     test_name == 'len' and (
+                         checks[test_name] < len_of_best_password
+                         )
+                     )]
+                )
 
             print(colorize('\nYour password strength: {}'.format(
-                                             str(password_strength)), color))
+                str(password_strength)), color)
+                )
 
             print(colorize(
                 recommends and 'RECOMMENDATIONS:\n\n{}\n'.format(recommends)
                 or 'Great! Your password is strong, ' +
-                   'but how do you remember it?\n', color))
+                   'but how do you remember it?\n', color
+                ))
