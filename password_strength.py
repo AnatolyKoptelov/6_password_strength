@@ -27,20 +27,14 @@ def get_rate(minimum, maximum, best_value, current_value):
         ))
 
 
-def summ_matched_keys_values(dict_1, dict_2):
-    return sum([dict_1[key] for key in dict_2.keys() if isinstance(
-        dict_1[key], int
-        )
-    ])
-
-
 def check_by_patterns(checks, password):
 
-    def summ_matched_values(dict_1, list_1):
-        return sum([dict_1[key] for key in list_1 if isinstance(
-            dict_1[key], int
-            )
-        ])
+    def summ_matched_values(results_dict, list_of_tests):
+        return sum(
+            [results_dict[test] for test in list_of_tests if isinstance(
+                results_dict[test], int
+            )]
+        )
 
     charsets = ['digits', 'loletters', 'upletters', 'symbols']
     formats = ['dateformat']
@@ -57,7 +51,7 @@ def check_by_patterns(checks, password):
     }
     for test_name, pattern in patterns.items():
         function, logic = pattern
-        checks[test_name] = int((function(password) is not None) == logic)
+        checks[test_name] = (function(password) is not None) == logic
     checks['charsets'] = summ_matched_values(checks, charsets)
     checks['max_charsets_rate'] = len(charsets)
     checks['formats'] = summ_matched_values(checks, formats)
@@ -76,12 +70,16 @@ def read_files(dict_of_paths):
     return dict_of_texts
 
 
-def check_by_blacklist(checks, dict_of_texts, password):
+def check_by_stoplists(checks, dict_of_texts, password):
+    checks['stoplists'] = 0
+    checks['max_stoplists_rate'] = len(dict_of_texts)
     for test_name, text in dict_of_texts.items():
         if text:
             checks[test_name] = not (password.lower() in text.split('\n'))
+            checks['stoplists'] += checks[test_name]
         else:
             checks[test_name] = None
+            checks['stoplists'] += 1  # Test was skipped, but we trust to user
     return checks
 
 
@@ -91,62 +89,65 @@ def check_errors(checks):
         if result is None:
             errors += 'Attention! {} test was skipped\n'.format(str(test_name))
             checks[test_name] = 1  # Test was skipped, but we trust to user
-    return errors
+    return checks, errors
 
 
 if __name__ == '__main__':
 
-    minimum_strenght = 1
-    maximum_strenght = 10
+    minimum_strength = 1
+    maximum_strength = 10
     min_len_value = -2
     max_len_value = 2
     len_of_best_password = 16
     charsets_coeff = 4
     formats_coeff = 1
-    blacklists_coeff = 3
+    stoplists_coeff = 3
 
     recommends_dict = {
-        'len': 'Your password is too short. Increase it lenght!',
-        'digits': 'Use numerical digits for increasing strenght!',
-        'loletters': 'Use lower-case letters for increasing strenght!',
-        'upletters': 'Use upper-case letters for increasing strenght!',
-        'symbols': 'Use special chars, such as @, #, for increasing strenght!',
-        'dateformat': 'Your password match the format of calendar dates, ' +
-                      'change your password!',
-        'blacklist': 'Your password found in a password blacklist, ' +
-                     'change it immediately!',
-        'names': 'Your password found in a names list, change it immediately!'
+        'len': 'Your password is too short. Increase it length!',
+        'digits': 'Use numerical digits for increasing strength!',
+        'loletters': 'Use lower-case letters for increasing strength!',
+        'upletters': 'Use upper-case letters for increasing strength!',
+        'symbols': 'Use special chars, such as @, #, for increasing strength!',
+        'dateformat': '{}{}'.format(
+            'Your password match the format of calendar dates, ',
+            'change your password!'
+        ),
+        'blacklist': '{}{}'.format(
+            'Your password found in a password blacklist, ',
+            'change it immediately!'
+        ),
+        'names': 'Your password found in a names list, change it immediately!',
     }
     password = ' '
     while password:
         password = getpass.getpass(
                 prompt='Input a password for checking or tap Enter for exit: ')
         if password:
-            # Get tests results
             checks = {
                 'len': len(password)
             }
             checks = check_by_patterns(checks, password)
-            blacklist_files = {
+            stoplists_files = {
                 'blacklist': './10_million_password_list_top_100000.txt',
-                'names': './names.txt'
+                'names': './names.txt',
             }
-            checks = check_by_blacklist(
+            checks = check_by_stoplists(
                 checks,
-                read_files(blacklist_files),
+                read_files(stoplists_files),
                 password,
             )
-            errors = check_errors(checks)
+            checks, errors = check_errors(checks)
+            print(checks)
             if errors:
                 print(colorize(errors, 'red'))
 
             maximum_check_range = max_len_value + (
                 charsets_coeff * checks['max_charsets_rate'] +
                 formats_coeff * checks['max_formats_rate'] +
-                blacklists_coeff * len(blacklist_files)
+                stoplists_coeff * checks['max_stoplists_rate']
                 )
 
-            # Componets of strenght, based on different tests
             len_value = get_rate(
                 minimum=min_len_value,
                 maximum=max_len_value,
@@ -156,27 +157,25 @@ if __name__ == '__main__':
 
             charset_value = charsets_coeff * checks['charsets']
             format_value = formats_coeff * checks['formats']
-            blacklist_value = blacklists_coeff * (
-                summ_matched_keys_values(checks, blacklist_files)
-                )
+            stoplist_value = stoplists_coeff * checks['stoplists']
 
             check_result = sum(
                 [len_value,
                  charset_value,
                  format_value,
-                 blacklist_value]
+                 stoplist_value]
                 )
 
             password_strength = get_rate(
-                minimum=minimum_strenght,
-                maximum=maximum_strenght,
+                minimum=minimum_strength,
+                maximum=maximum_strength,
                 best_value=maximum_check_range,
                 current_value=check_result
             )
 
             color = get_color(
-                minimum=minimum_strenght,
-                maximum=maximum_strenght,
+                minimum=minimum_strength,
+                maximum=maximum_strength,
                 current=password_strength
             )
 
@@ -195,6 +194,10 @@ if __name__ == '__main__':
 
             print(colorize(
                 recommends and 'RECOMMENDATIONS:\n\n{}\n'.format(recommends)
-                or 'Great! Your password is strong, ' +
-                   'but how do you remember it?\n', color
-                ))
+                or '{}{}'.format(
+                    'Great! Your password is strong, ',
+                    'but how do you remember it?\n'
+                ),
+                color
+                )
+            )

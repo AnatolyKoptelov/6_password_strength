@@ -5,11 +5,12 @@ This application check password for:
  - Lenght
  - Charsets (containing numerical digit, lower-case and upper-case letter, special symbols)
  - Formate (not matching for a formate of calendar dates)
- - Blacklist (matching of one of must popular passwords)
+ - Stoplists (not matching of one of must popular passwords and names)
 
-Blacklist is in **10_million_password_list_top_100000.txt**
+    Blacklist is in **10_million_password_list_top_100000.txt**  
+    Namelist is in **names.txt**
 
-Password strenght range from 1(worst) to 10(best) and application give some recomendations for password strenght increasing.
+Password strength range from 1(worst) to 10(best) and application give some recommendations for password strength increasing.
 
 # Quickstart
 
@@ -21,7 +22,7 @@ and application will propose you to enter your password for rating
 ```
 Input a password for checking or tap Enter for exit:
 ```
-Then application will give you your password rating and recomendations for password streght increasing.
+Then application will give you your password rating and recommendations for password strength increasing.
 ```
 Your password strength: 1
 
